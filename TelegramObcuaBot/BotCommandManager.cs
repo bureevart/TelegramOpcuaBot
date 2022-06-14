@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Telegram.Bot;
-using Telegram.Bot.Extensions.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Exceptions;
 using Opc.UaFx.Client;
@@ -99,7 +98,6 @@ namespace TelegramObcuaBot
 
         async Task CheckMessageAsync()
         {
-            // запуск метода считывания данных с ноды
             _node = message.Text.Split(" ")[POS_OF_COMMAND_PARAMS];
             await ReadNode();
         }
@@ -250,12 +248,12 @@ namespace TelegramObcuaBot
                         return;
                     }
                 }
+
             }
             else
             {
                 await botClient.SendTextMessageAsync(message.Chat, info);
             }
-
         }
 
         async Task SetValueAsync()
@@ -332,16 +330,16 @@ namespace TelegramObcuaBot
         async Task IsTagAsync()
         {
             var browse = new OpcBrowseNode(nodeId: _node, degree: OpcBrowseNodeDegree.Self, referenceTypes: new[]
-                {
+            {
                 OpcReferenceType.HasTypeDefinition
             });
 
             browse.Options = OpcBrowseOptions.IncludeAll;
             var opcNodeInfo = _client.BrowseNode(browse);
 
-            var NodeType = opcNodeInfo.Children().ToArray()[0].Reference.DisplayName.ToString();
+            var nodeType = opcNodeInfo.Children().ToArray()[0].Reference.DisplayName.ToString();
 
-            if (NodeType != "TagType")
+            if (nodeType != "TagType")
             {
                 isTag = false;
                 return;
@@ -368,12 +366,12 @@ namespace TelegramObcuaBot
                         if (!isConnected)
                         {
                             await ConnectMessageAsync();
-                        }
-                        else
-                        {
-                            await botClient.SendTextMessageAsync(message.Chat, MessageStrings.NotNecessaryConnectMessage);
+
+                            return;
                         }
 
+                        await botClient.SendTextMessageAsync(message.Chat, MessageStrings.NotNecessaryConnectMessage);
+                        
                         return;
                     case Commands.GetInfoCommand:
                         await GetInfoAsync();

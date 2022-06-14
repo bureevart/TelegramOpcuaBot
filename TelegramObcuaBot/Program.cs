@@ -2,10 +2,11 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Telegram.Bot;
-using Telegram.Bot.Extensions.Polling;
+
 using Telegram.Bot.Types;
 using Telegram.Bot.Exceptions;
 using TelegramObcuaBot;
+using Telegram.Bot.Extensions.Polling;
 
 namespace TelegramBotExperiments
 {
@@ -33,9 +34,7 @@ namespace TelegramBotExperiments
 
         public static async Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
         {
-            // Некоторые действия
             Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(exception));
-
         }
 
 
