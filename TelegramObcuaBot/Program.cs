@@ -12,16 +12,7 @@ namespace TelegramBotExperiments
 
     public class Program
     {
-        public static string[] BotCommands =
-        {
-            "/start - запуск бота",
-            "/help - справка по командам",
-            "/login - залогинится на сервере",
-            "/check - считать показатели",
-            "/logout - выйти из сети"
-        };
 
-        private static string[] _loginData; 
         private static string _token = "5580137395:AAF9O0KRHKY1BLRa7mgws4psH816qqpyBUI";
         static BotCommandManager _botCommandManager;
 
@@ -33,17 +24,18 @@ namespace TelegramBotExperiments
             if (update.Type == Telegram.Bot.Types.Enums.UpdateType.Message)
             {
                 var message = update.Message;
-                _botCommandManager = new BotCommandManager(message, botClient, BotCommands, _loginData);
+                _botCommandManager = new BotCommandManager(message, botClient, MessageStrings.BotCommands);
                 await _botCommandManager.Manager();
                 
             }
-           
+
         }
 
         public static async Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
         {
             // Некоторые действия
             Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(exception));
+
         }
 
 
@@ -58,6 +50,7 @@ namespace TelegramBotExperiments
             {
                 AllowedUpdates = { }, // receive all update types
             };
+
             _bot.StartReceiving(
                 HandleUpdateAsync,
                 HandleErrorAsync,
