@@ -7,7 +7,6 @@ using Telegram.Bot.Exceptions;
 using Opc.UaFx.Client;
 using System.Linq;
 using Opc.UaFx;
-using System.Collections.Generic;
 
 namespace TelegramObcuaBot
 {
@@ -31,10 +30,7 @@ namespace TelegramObcuaBot
 
         private static string _node;
 
-        public static Queue<string> alertsQueue = new Queue<string>();
-
-        public int nodeSeverity;
-
+        private AlertSubscriptions _alertSubscriptions;
         public string UserData
         {
             set
@@ -46,29 +42,14 @@ namespace TelegramObcuaBot
             }
         }
 
-
-        /**
-         * Конструктор программы
-         * 
-         * @param message сообщение, отправленное пользователем
-         * @param botClient данные бота
-         * @param BotCommands список команд бота
-         */
         internal BotCommandManager(Message message, ITelegramBotClient botClient, string[] BotCommands)
         {
+            _alertSubscriptions = new AlertSubscriptions(message, botClient, ref _client, isConnected);
             this.message = message;
             this.botClient = botClient;
             this.BotCommands = BotCommands;
         }
 
-
-
-
-        /**
-         * Менеджер управления командами
-         * 
-         * @param message сообщение, отправленное пользователем
-         */
         internal async Task Manager()
         {
             switch (message.Text)
@@ -85,35 +66,26 @@ namespace TelegramObcuaBot
                     await DisconnectMessageAsync();
 
                     return;
-                case Commands.getServerInfoCommand:
+                case Commands.GetServerInfoCommand:
                     await GetServerInfoAsync();
 
                     return;
-                case Commands.checkSubscribtionsCommand:
-                    await checkSubscriptionsAsync();
+                case Commands.CheckSubscribtionsCommand:
+                    await _alertSubscriptions.checkSubscriptionsAsync();
 
                     return;
                 default:
                     await CommandWithArgs();
 
                     return;
-
             }
         }
 
-        /**
-         * Стартовое приветствие
-         *
-         */
         async Task StartMessageAsync()
         {
             await botClient.SendTextMessageAsync(message.Chat, MessageStrings.GreetingsMessage);
         }
 
-        /**
-         * Вызов справки по командам
-         *
-         */
         async Task HelpMessageAsync()
         {
             var infoList = "Список команд: \n";
@@ -125,10 +97,6 @@ namespace TelegramObcuaBot
             await botClient.SendTextMessageAsync(message.Chat, infoList);
         }
 
-        /**
-         * Проверка ноды
-         *
-         */
         async Task CheckMessageAsync()
         {
             // запуск метода считывания данных с ноды
@@ -136,10 +104,6 @@ namespace TelegramObcuaBot
             await ReadNode();
         }
 
-        /**
-         * Выход из аккаунта (удаление данных пользователя)
-         *
-         */
         async Task DisconnectMessageAsync()
         {
             if (isConnected)
@@ -158,12 +122,6 @@ namespace TelegramObcuaBot
             }
         }
 
-        /**
-         * Подключение к серверу
-         *
-         * @param _login логин пользователя
-         * @param _password пароль пользователя
-         */
         async Task ConnectToServer()
         {
             _client = new OpcClient(_ip);
@@ -176,7 +134,7 @@ namespace TelegramObcuaBot
                 await botClient.SendTextMessageAsync(message.Chat, MessageStrings.SuccessConnectionMessage);
 
             }
-            catch
+            catch (Exception)
             {
                 await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongDataMessage);
 
@@ -188,20 +146,14 @@ namespace TelegramObcuaBot
             Console.WriteLine(_client.State.ToString());
         }
 
-        /**
-         * Считывание данных с ноды
-         *
-         * @param _node аргументы ноды 
-         */
         async Task ReadNode()
         {
             OpcValue opcValue;
             try
             {
                 opcValue = _client.ReadNode(_node);
-
             }
-            catch
+            catch (Exception)
             {
                 await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongNodeMessage);
                 return;
@@ -217,11 +169,6 @@ namespace TelegramObcuaBot
 
         }
 
-        /**
-         * Проверка и подключение к серверу
-         *
-         * @param _node аргументы ноды 
-         */
         async Task ConnectMessageAsync()
         {
             if (message.Text.Split(" ")[POS_OF_COMMAND_PARAMS].Split(PARAMS_SEPARATOR).Length == NUMBER_OF_PARAMS_IN_CONNECTION)
@@ -237,7 +184,6 @@ namespace TelegramObcuaBot
 
         async Task GetInfoAsync()
         {
-            // запуск метода считывания данных с ноды
             _node = message.Text.Split(" ")[POS_OF_COMMAND_PARAMS];
 
             OpcNodeInfo opcNodeInfo;
@@ -268,7 +214,6 @@ namespace TelegramObcuaBot
                 return;
             }
 
-            //test
             var referenceNodes = opcNodeInfo.Children();
 
             var NodeType = referenceNodes.ToArray()[0].Reference.DisplayName.ToString();
@@ -284,7 +229,6 @@ namespace TelegramObcuaBot
             //переписать красиво без строк в чистом виде, switch?
             if (NodeType == "TagType")
             {
-
                 await botClient.SendTextMessageAsync(message.Chat, $"{info}" +
                     $"\nValue: {opcNodeInfo.Attribute(OpcAttribute.Value).Value}" +
                     $"\nValueType: {opcNodeInfo.Attribute(OpcAttribute.Value).Value.DataType.ToString()}");
@@ -342,7 +286,7 @@ namespace TelegramObcuaBot
                 }
 
             }
-            catch
+            catch (Exception)
             {
                 await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongNodeMessage);
 
@@ -406,83 +350,6 @@ namespace TelegramObcuaBot
             isTag = true;
         }
 
-        async Task subscribeOnAlarmAsync()
-        {
-            if (!isConnected)
-            {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.NotConnectedMessage);
-                return;
-            }
-            var severityStr = message.Text.Split(" ")[POS_OF_COMMAND_PARAMS];
-
-            try
-            {
-                nodeSeverity = int.Parse(severityStr);
-            }
-            catch
-            {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.IncorrectDataTypeMessage);
-                return;
-            }
-
-            var currentAlarmSeverity = new OpcSimpleAttributeOperand(OpcEventTypes.Event, "Severity");
-            var filter = OpcFilter.Using(_client)
-                .FromEvents(OpcEventTypes.AlarmCondition,
-                            OpcEventTypes.ExclusiveLimitAlarm,
-                            OpcEventTypes.DialogCondition)
-                .Where(currentAlarmSeverity >= nodeSeverity)
-                .Select();
-            _client.SubscribeEvent(
-                OpcObjectTypes.Server,
-                filter,
-                HandleGlobalEvents);
-            await botClient.SendTextMessageAsync(message.Chat, MessageStrings.SuccecsfullySubscribedMessage);
-        }
-
-        private void HandleGlobalEvents(object sender, OpcEventReceivedEventArgs e)
-        {
-            alertsQueue.Enqueue(
-                $"Источник {e.Event.SourceName}" +
-                $"\nId ноды: {e.Event.SourceNodeId}" +
-                $"\nСообщение: {e.Event.Message}" +
-                $"\nSeverity: {e.Event.Severity}" +
-                $"\nВремя получения: {e.Event.ReceiveTime}");
-
-            sendAlertAsync();
-        }
-
-        async Task sendAlertAsync()
-        {
-            while (alertsQueue.Count > 0)
-            {
-                var alert = alertsQueue.Dequeue();
-                await botClient.SendTextMessageAsync(message.Chat, $"Обнаружен аларм тяжестью равного {nodeSeverity} или выше: \n{alert}");
-            }
-        }
-
-        async Task checkSubscriptionsAsync()
-        {
-            if (!isConnected)
-            {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.NotConnectedMessage);
-
-                return;
-            }
-
-            var list = "";
-            for (int i = 0; i < _client.Subscriptions.Count; i++)
-            {
-                OpcEventFilter opcEventFilter = (OpcEventFilter)_client.Subscriptions[i].MonitoredItems[0].Filter;
-                var sev = opcEventFilter.WhereClause.Elements[0].Operands[1];
-                list +=
-                    $"Id подписки: {_client.Subscriptions[i].Id} " +
-                    $"Severity: {sev} \n " +
-                    $"Информация: {_client.Subscriptions[i]}\n";
-            }
-
-            await botClient.SendTextMessageAsync(message.Chat, "Список подписок на алармы: \n" + list);
-        }
-
         async Task CommandWithArgs()
         {
             if (message.Text.Split(" ").Length == 2)
@@ -493,7 +360,7 @@ namespace TelegramObcuaBot
                         await CheckMessageAsync();
 
                         return;
-                    case Commands.setValueCommand:
+                    case Commands.SetValueCommand:
                         await SetValueAsync();
 
                         return;
@@ -508,25 +375,25 @@ namespace TelegramObcuaBot
                         }
 
                         return;
-                    case Commands.getInfoCommand:
+                    case Commands.GetInfoCommand:
                         await GetInfoAsync();
 
                         return;
-                    case Commands.subscribeOnAlarmCommand:
-                        await subscribeOnAlarmAsync();
+                    case Commands.SubscribeOnAlarmCommand:
+                        await _alertSubscriptions.subscribeOnAlarmAsync();
 
                         return;
-                    case Commands.unsubscribeCommand:
-                        await unsubscribeAsync();
+                    case Commands.UnsubscribeCommand:
+                        await _alertSubscriptions.unsubscribeAsync();
 
                         return;
                 }
             }
 
-            if (message.Text.Split(" ")[POS_OF_COMMAND] == Commands.unsubscribeCommand
-                || message.Text.Split(" ")[POS_OF_COMMAND] == Commands.subscribeOnAlarmCommand
-                || message.Text.Split(" ")[POS_OF_COMMAND] == Commands.getInfoCommand
-                || message.Text.Split(" ")[POS_OF_COMMAND] == Commands.setValueCommand
+            if (message.Text.Split(" ")[POS_OF_COMMAND] == Commands.UnsubscribeCommand
+                || message.Text.Split(" ")[POS_OF_COMMAND] == Commands.SubscribeOnAlarmCommand
+                || message.Text.Split(" ")[POS_OF_COMMAND] == Commands.GetInfoCommand
+                || message.Text.Split(" ")[POS_OF_COMMAND] == Commands.SetValueCommand
                 || message.Text.Split(" ")[POS_OF_COMMAND] == Commands.GetValueCommand)
             {
                 if (!isConnected)
@@ -551,38 +418,5 @@ namespace TelegramObcuaBot
 
             return;
         }
-
-        async Task unsubscribeAsync()
-        {
-            var subId = message.Text.Split(" ")[POS_OF_COMMAND_PARAMS];
-
-            var subscribeId = -1;
-            try
-            {
-                subscribeId = int.Parse(subId);
-            }
-            catch
-            {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.IncorrectDataTypeMessage);
-                return;
-            }
-
-            for (int i = 0; i < _client.Subscriptions.Count; i++)
-            {
-                if (subscribeId == _client.Subscriptions[i].Id)
-                {
-                    _client.Subscriptions[i].Unsubscribe();
-                    await botClient.SendTextMessageAsync(message.Chat, MessageStrings.SuccecsfullyUnsubscribedMessage);
-
-                    return;
-                }
-
-            }
-
-            await botClient.SendTextMessageAsync(message.Chat, MessageStrings.CannotFindIdMessage);
-
-        }
-
-
     }
 }

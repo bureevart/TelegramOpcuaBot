@@ -9,32 +9,27 @@ using Telegram.Bot.Types;
 
 namespace TelegramObcuaBot
 {
-    internal class AlertSubscriptions
+    public class AlertSubscriptions
     {
         public const int POS_OF_COMMAND_PARAMS = 1;
-        public const int POS_OF_COMMAND = 0;
-        public const int NUMBER_OF_PARAMS_IN_CONNECTION = 3;
-        public const char PARAMS_SEPARATOR = '!';
 
         Message message;
         internal ITelegramBotClient botClient;
-        public string[] BotCommands;
         static bool isConnected = false;
         private static OpcClient _client;
 
         public Queue<string> alertsQueue = new Queue<string>();
 
         public int nodeSeverity;
-        AlertSubscriptions(Message message, ITelegramBotClient botClient, string[] BotCommands, OpcClient opcClient, bool isConnctd)
+        internal AlertSubscriptions(Message message, ITelegramBotClient botClient, ref OpcClient opcClient, bool isConnctd)
         {
             this.message = message;
             this.botClient = botClient;
-            this.BotCommands = BotCommands;
             _client = opcClient;
             isConnected = isConnctd;
         }
 
-        async Task checkSubscriptionsAsync()
+        internal async Task checkSubscriptionsAsync()
         {
             if (!isConnected)
             {
@@ -57,7 +52,7 @@ namespace TelegramObcuaBot
             await botClient.SendTextMessageAsync(message.Chat, "Список подписок на алармы: \n" + list);
         }
 
-        async Task unsubscribeAsync()
+        internal async Task unsubscribeAsync()
         {
             var subId = message.Text.Split(" ")[POS_OF_COMMAND_PARAMS];
 
@@ -66,7 +61,7 @@ namespace TelegramObcuaBot
             {
                 subscribeId = int.Parse(subId);
             }
-            catch
+            catch (Exception)
             {
                 await botClient.SendTextMessageAsync(message.Chat, MessageStrings.IncorrectDataTypeMessage);
                 return;
@@ -88,7 +83,7 @@ namespace TelegramObcuaBot
 
         }
 
-        async Task subscribeOnAlarmAsync()
+        internal async Task subscribeOnAlarmAsync()
         {
             if (!isConnected)
             {
@@ -101,7 +96,7 @@ namespace TelegramObcuaBot
             {
                 nodeSeverity = int.Parse(severityStr);
             }
-            catch
+            catch (Exception)
             {
                 await botClient.SendTextMessageAsync(message.Chat, MessageStrings.IncorrectDataTypeMessage);
                 return;
@@ -133,7 +128,7 @@ namespace TelegramObcuaBot
             sendAlertAsync();
         }
 
-        async Task sendAlertAsync()
+        public async Task sendAlertAsync()
         {
             while (alertsQueue.Count > 0)
             {

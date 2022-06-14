@@ -31,13 +31,13 @@ namespace TelegramObcuaBot
             Commands.HelpCommand + " - справка по командам",
             Commands.ConnectCommand + " ip!login!password - подключится к серверу",
             Commands.GetValueCommand + " NodeId - считать показатели",
-            Commands.setValueCommand + " NodeId!newValue - установить значение",
-            Commands.getInfoCommand + " NodeId - информация о ноде",
-            Commands.getServerInfoCommand + " доступная информация о сервере",
+            Commands.SetValueCommand + " NodeId!newValue - установить значение",
+            Commands.GetInfoCommand + " NodeId - информация о ноде",
+            Commands.GetServerInfoCommand + " доступная информация о сервере",
             Commands.DisconnectCommand + " - отключится от сервера",
-            Commands.subscribeOnAlarmCommand+ " Severity - подписатся на алярм с указанной тяжестью",
-            Commands.checkSubscribtionsCommand + " - проверить свои подписки",
-            Commands.unsubscribeCommand + " subscribeId - отписаться от получения уведомлений об алармах"
+            Commands.SubscribeOnAlarmCommand+ " Severity - подписатся на алярм с указанной тяжестью",
+            Commands.CheckSubscribtionsCommand + " - проверить свои подписки",
+            Commands.UnsubscribeCommand + " subscribeId - отписаться от получения уведомлений об алармах"
         };
     }
 
@@ -48,12 +48,12 @@ namespace TelegramObcuaBot
         public const string HelpCommand = "/help";
         public const string GetValueCommand = "/getValue";
         public const string DisconnectCommand = "/disconnect";
-        public const string setValueCommand = "/setValue";
-        public const string getInfoCommand = "/getInfo";
-        public const string getServerInfoCommand = "/getServerInfo";
-        public const string subscribeOnAlarmCommand = "/subscribeOnAlarm";
-        public const string checkSubscribtionsCommand = "/checkSubscribtions";
-        public const string unsubscribeCommand = "/unsubscribe";
+        public const string SetValueCommand = "/setValue";
+        public const string GetInfoCommand = "/getInfo";
+        public const string GetServerInfoCommand = "/getServerInfo";
+        public const string SubscribeOnAlarmCommand = "/subscribeOnAlarm";
+        public const string CheckSubscribtionsCommand = "/checkSubscribtions";
+        public const string UnsubscribeCommand = "/unsubscribe";
 
     }
 }
