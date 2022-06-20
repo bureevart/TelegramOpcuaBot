@@ -204,7 +204,6 @@ namespace TelegramOpcuaBot
             }
             //state handler
             _userList[curChatIndex].Client.StateChanged += Client_StateChanged;
-            Console.WriteLine(_userList[curChatIndex].Client.State.ToString());
         }
 
         /// <summary>
@@ -214,17 +213,16 @@ namespace TelegramOpcuaBot
         /// <param name="e">state changed event</param>
         private async void Client_StateChanged(object sender, OpcClientStateChangedEventArgs e)
         {
+            Console.WriteLine(e.NewState);
             switch (e.NewState)
             {
                 case OpcClientState.Reconnecting:
-                    await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, "Происходит переподключение к серверу...");
-                    break;
-                case OpcClientState.Reconnected:
-                    await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, "Успешно переподключено");
+                    await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.ReconnectingMessage);
                     break;
                 case OpcClientState.Connected:
-                    await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, "Соединение восстановлено!");
+                    await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.ConnectionRestoredMessage);
                     break;
+                //other events
             }
         }
 

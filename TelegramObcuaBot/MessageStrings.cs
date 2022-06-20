@@ -27,6 +27,8 @@ namespace TelegramOpcuaBot
         public static string SuccecsfullyUnsubscribedMessage = "Вы успешно отписались от получения уведомлений выбранной подписки.";
         public static string SuccecsfullySubscribedMessage = "Подписка успешно подключена.";
         public static string CannotFindIdMessage = "Id подписки не найден!";
+        public static string ReconnectingMessage = "Происходит переподключение к серверу...";
+        public static string ConnectionRestoredMessage = "Соединение восстановлено!";
 
         public static string[] BotCommands =
         {
