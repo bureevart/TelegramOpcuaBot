@@ -5,7 +5,7 @@ using System.Text;
 namespace TelegramOpcuaBot
 {
     /// <summary>
-    /// Класс текстовых полей сообщений бота
+    /// The class of the bot's message text fields
     /// </summary>
     internal class MessageStrings
     {
@@ -45,7 +45,7 @@ namespace TelegramOpcuaBot
     }
 
     /// <summary>
-    /// Класс команд на которые реагирует телеграм бот
+    /// The class of commands that the telegram bot responds
     /// </summary>
     internal class Commands
     {

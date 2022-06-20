@@ -6,7 +6,7 @@ using Telegram.Bot.Types;
 namespace TelegramOpcuaBot
 {
     /// <summary>
-    /// Класс пользователя
+    /// class of user
     /// </summary>
     internal class User
     {

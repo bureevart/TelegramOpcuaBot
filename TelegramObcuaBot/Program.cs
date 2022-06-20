@@ -11,7 +11,7 @@ namespace TelegramOpcuaBot
 {
 
     /// <summary>
-    /// Класс телеграм бота
+    /// Class of telegram bot
     /// </summary>
     public class TelegramOpcuaBot
     {
@@ -21,12 +21,12 @@ namespace TelegramOpcuaBot
         private static ITelegramBotClient _bot;
 
         /// <summary>
-        /// Обработчик обновлений бота, считывает сообщения обрабатывает их
+        /// Bot update handler, reads messages and processes them
         /// </summary>
-        /// <param name="botClient">Телеграм бот</param>
-        /// <param name="update">Обновление</param>
-        /// <param name="cancellationToken">Уведомление о том что операция должна быть отменена</param>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <param name="botClient">telegram bot</param>
+        /// <param name="update">update</param>
+        /// <param name="cancellationToken">Notification that the operation should be canceled</param>
+        /// <returns>Task (called code will wait end of method)</returns>
         public static async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
             Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(update));
@@ -41,19 +41,19 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Обработчик исключение (выводит информацию об ошибки в консоль)
+        /// Error's handler (sended info about exception in consol)
         /// </summary>
-        /// <param name="botClient">телеграм бот</param>
-        /// <param name="exception">исключение</param>
-        /// <param name="cancellationToken">Уведомление о том что операция должна быть отменена</param>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <param name="botClient">telegram bot</param>
+        /// <param name="exception">exception</param>
+        /// <param name="cancellationToken">Notification that the operation should be canceled</param>
+        /// <returns>Task (called code will wait end of method)</returns>
         public static async Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
         {
             Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(exception));
         }
 
         /// <summary>
-        /// Основной метод программы
+        /// Main method of program
         /// </summary>
         static void Main()
         {

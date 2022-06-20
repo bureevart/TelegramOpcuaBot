@@ -11,7 +11,7 @@ using System.Collections.Generic;
 namespace TelegramOpcuaBot
 {
     /// <summary>
-    /// Класс менеджера команд телеграм бота
+    /// Class of bot command manager
     /// </summary>
     /// 
     internal class BotCommandManager
@@ -21,10 +21,10 @@ namespace TelegramOpcuaBot
         internal ITelegramBotClient botClient;
 
         /// <summary>
-        /// Конструктор менеджера управления командами
+        /// Сonstructor of bot command manager
         /// </summary>
-        /// <param name="message">отправленное от пользователя сообщение</param>
-        /// <param name="botClient">бот</param>
+        /// <param name="message">message that sended by user</param>
+        /// <param name="botClient">bot</param>
         internal BotCommandManager(Message message, ITelegramBotClient botClient)
         {
             defineChat(message);
@@ -35,9 +35,9 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Определение id чата
+        /// Determining the chat id
         /// </summary>
-        /// <param name="message">отправленное боту сообщение</param>
+        /// <param name="message">sended message</param>
         void defineChat(Message message)
         {
             curChatIndex = -1;
@@ -61,9 +61,9 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Обработчик команд бота, обрабатывает уже пришедшее сообщение message.Text
+        /// The bot's command handler, processes the message that has already arrived
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <returns>Task (called code will wait end of method)</returns>
         internal async Task Manager()
         {
             switch (_userList[curChatIndex].message.Text)
@@ -95,17 +95,17 @@ namespace TelegramOpcuaBot
             }
         }
         /// <summary>
-        /// Вывод приветствия пользователю
+        /// Output greetings to the user
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <returns>Task (called code will wait end of method)</returns>
         async Task StartMessageAsync()
         {
             await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.GreetingsMessage);
         }
         /// <summary>
-        /// Вывод списка команд бота
+        /// Output of bot command list
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <returns>Task (called code will wait end of method)</returns>
         async Task HelpMessageAsync()
         {
             var infoList = "Список команд: \n";
@@ -118,9 +118,9 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Вывод значения указанной в аргументах ноды
+        /// Output of the value of the node specified in the arguments
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <returns>Task (called code will wait end of method)</returns>
         async Task GetValueAsync()
         {
             if (!_userList[curChatIndex].isConnected)
@@ -155,9 +155,9 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Закрывает активную сессию и останавливает подключение к серверу
+        /// Closes the active session and stops connecting to the server
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <returns>Task (called code will wait end of method)</returns>
         async Task DisconnectMessageAsync()
         {
             if (_userList[curChatIndex].isConnected)
@@ -178,9 +178,9 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Подключение к серверу с использованием логина и пароля
+        /// Connecting to the server with login and password
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <returns>Task (called code will wait end of method)</returns>
         async Task ConnectToServer()
         {
 
@@ -202,14 +202,36 @@ namespace TelegramOpcuaBot
                 _userList[curChatIndex].Login = null;
                 _userList[curChatIndex].Password = null;
             }
-
+            //state handler
+            _userList[curChatIndex].Client.StateChanged += Client_StateChanged;
             Console.WriteLine(_userList[curChatIndex].Client.State.ToString());
         }
 
         /// <summary>
-        /// Проверка параметров перед подключением к серверу
+        /// state of connecting handler
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <param name="sender">sender</param>
+        /// <param name="e">state changed event</param>
+        private async void Client_StateChanged(object sender, OpcClientStateChangedEventArgs e)
+        {
+            switch (e.NewState)
+            {
+                case OpcClientState.Reconnecting:
+                    await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, "Происходит переподключение к серверу...");
+                    break;
+                case OpcClientState.Reconnected:
+                    await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, "Успешно переподключено");
+                    break;
+                case OpcClientState.Connected:
+                    await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, "Соединение восстановлено!");
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Checking parameters before connecting to the server
+        /// </summary>
+        /// <returns>Task (called code will wait end of method)</returns>
         async Task ConnectMessageAsync()
         {
             if (_userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND_PARAMS].Split(User.PARAMS_SEPARATOR).Length == User.NUMBER_OF_PARAMS_IN_CONNECTION)
@@ -224,9 +246,9 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Вывод информации о введенной ноде
+        /// Output info about node
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <returns>Task (called code will wait end of method)</returns>
         async Task GetInfoAsync()
         {
             if (!_userList[curChatIndex].isConnected)
@@ -313,9 +335,9 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Устанавливает в выбранную ноду новое значение
+        /// Set value in selected node
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <returns>Task (called code will wait end of method)</returns>
         async Task SetValueAsync()
         {
             if (!_userList[curChatIndex].isConnected)
@@ -366,9 +388,9 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Вывод информации о сервере (необходимо сначала к нему подключится)
+        /// Output info about server
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <returns>Task (called code will wait end of method)</returns>
         async Task GetServerInfoAsync()
         {
             if (!_userList[curChatIndex].isConnected)
@@ -377,6 +399,7 @@ namespace TelegramOpcuaBot
 
                 return;
             }
+
 
             await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, "Информация о сервере: " +
                 $"\nServerUri: {_userList[curChatIndex].Client.ServerAddress}" +
@@ -387,7 +410,7 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Статусы работы и их идентификаторы
+        /// Work status and id of them
         /// </summary>
         enum JobStatus
         {
@@ -397,9 +420,9 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Проверка на то является ли нода тэгом
+        /// Checking: is node a tag
         /// </summary>
-        /// <returns>true если нода является тэгом</returns>
+        /// <returns>true if node is tag</returns>
         bool IsTag()
         {
             var browse = new OpcBrowseNode(nodeId: _userList[curChatIndex].Node, degree: OpcBrowseNodeDegree.Self, referenceTypes: new[]
@@ -421,9 +444,9 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Обработчик команд бота
+        /// Command bot handler
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <returns>Task (called code will wait end of method)</returns>
         async Task CommandWithArgs()
         {
             if (_userList[curChatIndex].message.Text.Split(" ").Length == 2)

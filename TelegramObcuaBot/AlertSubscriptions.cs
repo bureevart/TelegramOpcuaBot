@@ -9,10 +9,13 @@ using Telegram.Bot.Types;
 namespace TelegramOpcuaBot
 {
     /// <summary>
-    /// Класс подписок на алармы
+    /// Class of subsctiptions on alarms
     /// </summary>
     public class AlarmSubscriptions
     {
+        /// <summary>
+        /// Index of position command parameters in input
+        /// </summary>
         public const int POS_OF_COMMAND_PARAMS = 1;
 
         Message message;
@@ -20,17 +23,23 @@ namespace TelegramOpcuaBot
         internal static bool isConnected = false;
         private static OpcClient _client;
 
-        public Queue<string> alertsQueue = new Queue<string>();
+        /// <summary>
+        /// Queue of registered alarms
+        /// </summary>
+        public Queue<string> alarmsQueue = new Queue<string>();
 
+        /// <summary>
+        /// Severity of node
+        /// </summary>
         public int nodeSeverity;
 
         /// <summary>
-        /// Конструктор алармов
+        /// Alarms constructor
         /// </summary>
-        /// <param name="message">сообщение, отправленное пользователем боту</param>
-        /// <param name="botClient">телеграм-бот</param>
-        /// <param name="opcClient">клиент opc</param>
-        /// <param name="isConnctd">есть ли подключение к серверу</param>
+        /// <param name="message">message, sended bot by user</param>
+        /// <param name="botClient">telegram bot</param>
+        /// <param name="opcClient">client</param>
+        /// <param name="isConnctd">is Connected to server</param>
         internal AlarmSubscriptions(Message message, ITelegramBotClient botClient, OpcClient opcClient, bool isConnctd)
         {
             this.message = message;
@@ -40,9 +49,9 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Проверка подписок на алармы
+        /// Checking alarm on subscriptions
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <returns>Task (called code will wait end of method)</returns>
         internal async Task checkSubscriptionsAsync()
         {
             if (!isConnected)
@@ -67,9 +76,9 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Отписка от подписки с указанным id
+        /// Unsubscribe from a subscription with the specified id
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <returns>Task (called code will wait end of method)</returns>
         internal async Task unsubscribeAsync()
         {
             if (!isConnected)
@@ -109,9 +118,9 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Подписка на аларм (с указанием severity)
+        /// Subsctiption on alarm (necessary severity)
         /// </summary>
-        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        /// <returns>Task (called code will wait end of method)</returns>
         internal async Task subscribeOnAlarmAsync()
         {
             if (!isConnected)
@@ -147,13 +156,13 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Обработчик алармов
+        /// Alarms handler
         /// </summary>
-        /// <param name="sender">отправитель</param>
-        /// <param name="e">событие, которое произошло</param>
+        /// <param name="sender">sender</param>
+        /// <param name="e">received event</param>
         private void HandleGlobalEvents(object sender, OpcEventReceivedEventArgs e)
         {
-            alertsQueue.Enqueue(
+            alarmsQueue.Enqueue(
                 $"Источник {e.Event.SourceName}" +
                 $"\nId ноды: {e.Event.SourceNodeId}" +
                 $"\nСообщение: {e.Event.Message}" +
@@ -164,13 +173,13 @@ namespace TelegramOpcuaBot
         }
 
         /// <summary>
-        /// Вывод алармов пользователю
+        /// alarm output
         /// </summary>
         public async void sendAlertAsync()
         {
-            while (alertsQueue.Count > 0)
+            while (alarmsQueue.Count > 0)
             {
-                var alert = alertsQueue.Dequeue();
+                var alert = alarmsQueue.Dequeue();
                 await botClient.SendTextMessageAsync(message.Chat, $"Обнаружен аларм тяжестью равного {nodeSeverity} или выше: \n{alert}");
             }
         }
