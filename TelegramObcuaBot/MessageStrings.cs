@@ -2,8 +2,11 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace TelegramObcuaBot
+namespace TelegramOpcuaBot
 {
+    /// <summary>
+    /// Класс текстовых полей сообщений бота
+    /// </summary>
     internal class MessageStrings
     {
         public static string GreetingsMessage = "Приветствую, введите /help для для того чтобы посмотреть на мои возможности.";
@@ -41,6 +44,9 @@ namespace TelegramObcuaBot
         };
     }
 
+    /// <summary>
+    /// Класс команд на которые реагирует телеграм бот
+    /// </summary>
     internal class Commands
     {
         public const string ConnectCommand = "/connect";

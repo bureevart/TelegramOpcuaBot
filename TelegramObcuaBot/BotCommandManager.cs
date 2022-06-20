@@ -6,52 +6,67 @@ using Telegram.Bot.Exceptions;
 using Opc.UaFx.Client;
 using System.Linq;
 using Opc.UaFx;
+using System.Collections.Generic;
 
-namespace TelegramObcuaBot
+namespace TelegramOpcuaBot
 {
+    /// <summary>
+    /// Класс менеджера команд телеграм бота
+    /// </summary>
+    /// 
     internal class BotCommandManager
     {
-        public const int POS_OF_COMMAND_PARAMS = 1;
-        public const int POS_OF_COMMAND = 0;
-        public const int NUMBER_OF_PARAMS_IN_CONNECTION = 3;
-        public const char PARAMS_SEPARATOR = '!';
-
-        Message message;
+        private int curChatIndex = -1;
+        private static List<User> _userList = new List<User>();
         internal ITelegramBotClient botClient;
-        public string[] BotCommands;
-        static bool isConnected = false;
-        private static OpcClient _client;
-        private static bool isTag = false;
 
-        private static string _ip;
-        private static string _login;
-        private static string _password;
-
-        private static string _node;
-
-        private AlertSubscriptions _alertSubscriptions;
-        public string UserData
+        /// <summary>
+        /// Конструктор менеджера управления командами
+        /// </summary>
+        /// <param name="message">отправленное от пользователя сообщение</param>
+        /// <param name="botClient">бот</param>
+        internal BotCommandManager(Message message, ITelegramBotClient botClient)
         {
-            set
+            defineChat(message);
+
+            _userList[curChatIndex].AlarmSubscriptions = new AlarmSubscriptions(message, botClient, _userList[curChatIndex].Client, _userList[curChatIndex].isConnected);
+            _userList[curChatIndex].message = message;
+            this.botClient = botClient;
+        }
+
+        /// <summary>
+        /// Определение id чата
+        /// </summary>
+        /// <param name="message">отправленное боту сообщение</param>
+        void defineChat(Message message)
+        {
+            curChatIndex = -1;
+
+            for (int i = 0; i < _userList.Count; i++)
             {
-                var array = value.Split(" ")[POS_OF_COMMAND_PARAMS].Split(PARAMS_SEPARATOR);
-                _ip = array.FirstOrDefault();
-                _login = array[1];
-                _password = array[2];
+                if (_userList[i].id == message.Chat.Id)
+                {
+                    curChatIndex = i;
+
+                    break;
+                }
+            }
+
+            if (curChatIndex == -1)
+            {
+                _userList.Add(new User());
+                curChatIndex = _userList.Count - 1;
+                _userList[curChatIndex].id = message.Chat.Id;
             }
         }
 
-        internal BotCommandManager(Message message, ITelegramBotClient botClient, string[] BotCommands)
-        {
-            _alertSubscriptions = new AlertSubscriptions(message, botClient, ref _client, isConnected);
-            this.message = message;
-            this.botClient = botClient;
-            this.BotCommands = BotCommands;
-        }
-
+        /// <summary>
+        /// Обработчик команд бота, обрабатывает уже пришедшее сообщение message.Text
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
         internal async Task Manager()
         {
-            switch (message.Text)
+            switch (_userList[curChatIndex].message.Text)
             {
                 case Commands.StartCommand:
                     await StartMessageAsync();
@@ -70,7 +85,7 @@ namespace TelegramObcuaBot
 
                     return;
                 case Commands.CheckSubscribtionsCommand:
-                    await _alertSubscriptions.checkSubscriptionsAsync();
+                    await _userList[curChatIndex].AlarmSubscriptions.checkSubscriptionsAsync();
 
                     return;
                 default:
@@ -79,117 +94,155 @@ namespace TelegramObcuaBot
                     return;
             }
         }
-
+        /// <summary>
+        /// Вывод приветствия пользователю
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
         async Task StartMessageAsync()
         {
-            await botClient.SendTextMessageAsync(message.Chat, MessageStrings.GreetingsMessage);
+            await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.GreetingsMessage);
         }
-
+        /// <summary>
+        /// Вывод списка команд бота
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
         async Task HelpMessageAsync()
         {
             var infoList = "Список команд: \n";
 
-            for (int i = 0; i < BotCommands.Length; i++)
+            for (int i = 0; i < MessageStrings.BotCommands.Length; i++)
             {
-                infoList += BotCommands[i] + "\n";
+                infoList += MessageStrings.BotCommands[i] + "\n";
             }
-            await botClient.SendTextMessageAsync(message.Chat, infoList);
+            await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, infoList);
         }
 
-        async Task CheckMessageAsync()
+        /// <summary>
+        /// Вывод значения указанной в аргументах ноды
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        async Task GetValueAsync()
         {
-            _node = message.Text.Split(" ")[POS_OF_COMMAND_PARAMS];
-            await ReadNode();
-        }
-
-        async Task DisconnectMessageAsync()
-        {
-            if (isConnected)
+            if (!_userList[curChatIndex].isConnected)
             {
-                isConnected = false;
-                _login = "";
-                _password = "";
-                _ip = "";
-                _client.Disconnect();
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.NotConnectedMessage);
 
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.DisconnectedMessage);
-            }
-            else
-            {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.NotNecessaryDisconnectMessage);
-            }
-        }
-
-        async Task ConnectToServer()
-        {
-            _client = new OpcClient(_ip);
-            _client.Security.UserIdentity = new OpcClientIdentity(_login, _password);
-
-            try
-            {
-                _client.Connect();
-                isConnected = true;
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.SuccessConnectionMessage);
-
-            }
-            catch (Exception)
-            {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongDataMessage);
-
-                _ip = null;
-                _login = null;
-                _password = null;
+                return;
             }
 
-            Console.WriteLine(_client.State.ToString());
-        }
+            _userList[curChatIndex].Node = _userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND_PARAMS];
 
-        async Task ReadNode()
-        {
             OpcValue opcValue;
             try
             {
-                opcValue = _client.ReadNode(_node);
+                opcValue = _userList[curChatIndex].Client.ReadNode(_userList[curChatIndex].Node);
             }
             catch (Exception)
             {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongNodeMessage);
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.WrongNodeMessage);
+
                 return;
             }
+
             if (opcValue.Value != null)
             {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.NodeInputMessage + opcValue.Value.ToString());
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.NodeInputMessage + opcValue.Value.ToString());
+                
+                return;
+            }
+
+            await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.WrongNodeMessage);
+        }
+
+        /// <summary>
+        /// Закрывает активную сессию и останавливает подключение к серверу
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        async Task DisconnectMessageAsync()
+        {
+            if (_userList[curChatIndex].isConnected)
+            {
+                _userList[curChatIndex].isConnected = false;
+                _userList[curChatIndex].Ip = "";
+                _userList[curChatIndex].Login = "";
+                _userList[curChatIndex].Password = "";
+
+                _userList[curChatIndex].Client.Disconnect();
+
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.DisconnectedMessage);
             }
             else
             {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongNodeMessage);
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.NotNecessaryDisconnectMessage);
             }
-
         }
 
+        /// <summary>
+        /// Подключение к серверу с использованием логина и пароля
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
+        async Task ConnectToServer()
+        {
+
+            _userList[curChatIndex].Client = new OpcClient(_userList[curChatIndex].Ip);
+            _userList[curChatIndex].Client.Security.UserIdentity = new OpcClientIdentity(_userList[curChatIndex].Login, _userList[curChatIndex].Password);
+
+            try
+            {
+                _userList[curChatIndex].Client.Connect();
+                _userList[curChatIndex].isConnected = true;
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.SuccessConnectionMessage);
+
+            }
+            catch (Exception)
+            {
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.WrongDataMessage);
+
+                _userList[curChatIndex].Ip = null;
+                _userList[curChatIndex].Login = null;
+                _userList[curChatIndex].Password = null;
+            }
+
+            Console.WriteLine(_userList[curChatIndex].Client.State.ToString());
+        }
+
+        /// <summary>
+        /// Проверка параметров перед подключением к серверу
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
         async Task ConnectMessageAsync()
         {
-            if (message.Text.Split(" ")[POS_OF_COMMAND_PARAMS].Split(PARAMS_SEPARATOR).Length == NUMBER_OF_PARAMS_IN_CONNECTION)
+            if (_userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND_PARAMS].Split(User.PARAMS_SEPARATOR).Length == User.NUMBER_OF_PARAMS_IN_CONNECTION)
             {
-                UserData = message.Text;
+                _userList[curChatIndex].UserData = _userList[curChatIndex].message.Text;
                 await ConnectToServer();
             }
             else
             {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongDataMessage);
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.WrongDataMessage);
             }
         }
 
+        /// <summary>
+        /// Вывод информации о введенной ноде
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
         async Task GetInfoAsync()
         {
-            _node = message.Text.Split(" ")[POS_OF_COMMAND_PARAMS];
+            if (!_userList[curChatIndex].isConnected)
+            {
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.NotConnectedMessage);
+
+                return;
+            }
+            _userList[curChatIndex].Node = _userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND_PARAMS];
 
             OpcNodeInfo opcNodeInfo;
 
             OpcBrowseNode browse;
             try
             {
-                browse = new OpcBrowseNode(nodeId: OpcNodeId.Parse(_node), degree: OpcBrowseNodeDegree.Self, referenceTypes: new[]
+                browse = new OpcBrowseNode(nodeId: OpcNodeId.Parse(_userList[curChatIndex].Node), degree: OpcBrowseNodeDegree.Self, referenceTypes: new[]
                 {
                     OpcReferenceType.HasTypeDefinition,
                     OpcReferenceType.Organizes,
@@ -198,17 +251,19 @@ namespace TelegramObcuaBot
                 });
 
                 browse.Options = OpcBrowseOptions.IncludeAll;
-                opcNodeInfo = _client.BrowseNode(browse);
+                opcNodeInfo = _userList[curChatIndex].Client.BrowseNode(browse);
             }
             catch (Exception)
             {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongNodeMessage);
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.WrongNodeMessage);
+
                 return;
             }
 
             if (opcNodeInfo.Name.IsNull)
             {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongNodeMessage);
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.WrongNodeMessage);
+
                 return;
             }
 
@@ -224,102 +279,116 @@ namespace TelegramObcuaBot
                     $"\nDisplayName: {opcNodeInfo.Attribute(OpcAttribute.DisplayName).Value}" +
                     $"\nDescription: {((opcNodeInfo.Attribute(OpcAttribute.Description).Value.ToString() == "") ? MessageStrings.NoDescriptionMessage : opcNodeInfo.Attribute(OpcAttribute.Description).Value)}";
 
-            //переписать красиво без строк в чистом виде, switch?
-            if (NodeType == "TagType")
+            switch (NodeType)
             {
-                await botClient.SendTextMessageAsync(message.Chat, $"{info}" +
+                case "TagType":
+                    await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, $"{info}" +
                     $"\nValue: {opcNodeInfo.Attribute(OpcAttribute.Value).Value}" +
                     $"\nValueType: {opcNodeInfo.Attribute(OpcAttribute.Value).Value.DataType.ToString()}");
-            }
-            else if (NodeType == "JobType")
-            {
-                await botClient.SendTextMessageAsync(message.Chat, info);
 
-                //работает 2 раза без return
-                foreach (var referenceNode in referenceNodes)
-                {
-                    var opcValue = _client.ReadNode(referenceNode.NodeId);
-                    Console.WriteLine(referenceNode.Reference.DisplayName + " " + opcValue);
+                    return;
+                case "JobType":
+                    await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, info);
 
-                    if (referenceNode.Reference.DisplayName == "Status")
+                    foreach (var referenceNode in referenceNodes)
                     {
-                        await botClient.SendTextMessageAsync(message.Chat, "Статус работы: " + ((JobStatus)int.Parse(opcValue.ToString())).ToString());
+                        var opcValue = _userList[curChatIndex].Client.ReadNode(referenceNode.NodeId);
+                        Console.WriteLine(referenceNode.Reference.DisplayName + " " + opcValue);
 
-                        return;
+                        if (referenceNode.Reference.DisplayName == "Status")
+                        {
+                            await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, "Статус работы: " + ((JobStatus)int.Parse(opcValue.ToString())).ToString());
+
+                            return;
+                        }
                     }
-                }
 
+                    return;
+                default:
+                    await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, info);
+
+                    return;
             }
-            else
-            {
-                await botClient.SendTextMessageAsync(message.Chat, info);
-            }
+ 
         }
 
+        /// <summary>
+        /// Устанавливает в выбранную ноду новое значение
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
         async Task SetValueAsync()
         {
-            if (message.Text.Split(" ")[POS_OF_COMMAND_PARAMS].Split(PARAMS_SEPARATOR).Length != 2)
+            if (!_userList[curChatIndex].isConnected)
             {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongDataMessage);
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.NotConnectedMessage);
 
                 return;
             }
 
-            _node = message.Text.Split(" ")[POS_OF_COMMAND_PARAMS].Split(PARAMS_SEPARATOR)[0];
-            var changedValue = message.Text.Split(" ")[POS_OF_COMMAND_PARAMS].Split(PARAMS_SEPARATOR)[1];
+            if (_userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND_PARAMS].Split(User.PARAMS_SEPARATOR).Length != 2)
+            {
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.WrongDataMessage);
 
-            OpcValue tempValue;
+                return;
+            }
+
+            _userList[curChatIndex].Node = _userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND_PARAMS].Split(User.PARAMS_SEPARATOR)[0];
+            var changedValue = _userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND_PARAMS].Split(User.PARAMS_SEPARATOR)[1];
+
             try
             {
-                await IsTagAsync();
-
-                tempValue = _client.ReadNode(_node);
-                Console.WriteLine(_client.WriteNode(_node, changedValue));
-
-                if (!isTag)
+                if (!IsTag())
                 {
-                    await botClient.SendTextMessageAsync(message.Chat, MessageStrings.NodeIsNotTagMessage);
+                    await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.NodeIsNotTagMessage);
 
                     return;
                 }
-
             }
             catch (Exception)
             {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongNodeMessage);
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.WrongNodeMessage);
 
                 return;
             }
 
-            //возможно нужны доп проверки для некоторых типов
-            if (_client.ReadNode(_node).Value == null)
+            var tempValue = _userList[curChatIndex].Client.ReadNode(_userList[curChatIndex].Node);
+            Console.WriteLine(_userList[curChatIndex].Client.WriteNode(_userList[curChatIndex].Node, changedValue));
+
+            if (_userList[curChatIndex].Client.ReadNode(_userList[curChatIndex].Node).Value == null)
             {
-                _client.WriteNode(_node, tempValue.Value);
+                _userList[curChatIndex].Client.WriteNode(_userList[curChatIndex].Node, tempValue.Value);
 
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongTypeOfInputMessage);
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.WrongTypeOfInputMessage);
                 return;
             }
 
-            await botClient.SendTextMessageAsync(message.Chat, MessageStrings.InputValueSetMessage);
+            await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.InputValueSetMessage);
         }
 
+        /// <summary>
+        /// Вывод информации о сервере (необходимо сначала к нему подключится)
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
         async Task GetServerInfoAsync()
         {
-            if (!isConnected)
+            if (!_userList[curChatIndex].isConnected)
             {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.NotConnectedMessage);
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.NotConnectedMessage);
 
                 return;
             }
 
-            await botClient.SendTextMessageAsync(message.Chat, "Информация о сервере: " +
-                $"\nServerUri: {_client.ServerAddress}" +
-                $"\nHostName: {_client.ServerAddress.Host}" +
-                $"\nClientState: {_client.State}" +
-                $"\nNamespaces: {_client.Namespaces.Count}" +
-                $"\nKeepAlive: {_client.KeepAlive}");
+            await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, "Информация о сервере: " +
+                $"\nServerUri: {_userList[curChatIndex].Client.ServerAddress}" +
+                $"\nHostName: {_userList[curChatIndex].Client.ServerAddress.Host}" +
+                $"\nClientState: {_userList[curChatIndex].Client.State}" +
+                $"\nNamespaces: {_userList[curChatIndex].Client.Namespaces.Count}" +
+                $"\nKeepAlive: {_userList[curChatIndex].Client.KeepAlive}");
         }
 
+        /// <summary>
+        /// Статусы работы и их идентификаторы
+        /// </summary>
         enum JobStatus
         {
             Started = 3,
@@ -327,35 +396,42 @@ namespace TelegramObcuaBot
             Error = 4
         }
 
-        async Task IsTagAsync()
+        /// <summary>
+        /// Проверка на то является ли нода тэгом
+        /// </summary>
+        /// <returns>true если нода является тэгом</returns>
+        bool IsTag()
         {
-            var browse = new OpcBrowseNode(nodeId: _node, degree: OpcBrowseNodeDegree.Self, referenceTypes: new[]
+            var browse = new OpcBrowseNode(nodeId: _userList[curChatIndex].Node, degree: OpcBrowseNodeDegree.Self, referenceTypes: new[]
             {
                 OpcReferenceType.HasTypeDefinition
             });
 
             browse.Options = OpcBrowseOptions.IncludeAll;
-            var opcNodeInfo = _client.BrowseNode(browse);
+            var opcNodeInfo = _userList[curChatIndex].Client.BrowseNode(browse);
 
             var nodeType = opcNodeInfo.Children().ToArray()[0].Reference.DisplayName.ToString();
 
             if (nodeType != "TagType")
             {
-                isTag = false;
-                return;
+                return false;
             }
 
-            isTag = true;
+            return true;
         }
 
+        /// <summary>
+        /// Обработчик команд бота
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
         async Task CommandWithArgs()
         {
-            if (message.Text.Split(" ").Length == 2)
+            if (_userList[curChatIndex].message.Text.Split(" ").Length == 2)
             {
-                switch (message.Text.Split(" ")[POS_OF_COMMAND])
+                switch (_userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND])
                 {
                     case Commands.GetValueCommand:
-                        await CheckMessageAsync();
+                        await GetValueAsync();
 
                         return;
                     case Commands.SetValueCommand:
@@ -363,14 +439,14 @@ namespace TelegramObcuaBot
 
                         return;
                     case Commands.ConnectCommand:
-                        if (!isConnected)
+                        if (!_userList[curChatIndex].isConnected)
                         {
                             await ConnectMessageAsync();
 
                             return;
                         }
 
-                        await botClient.SendTextMessageAsync(message.Chat, MessageStrings.NotNecessaryConnectMessage);
+                        await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.NotNecessaryConnectMessage);
                         
                         return;
                     case Commands.GetInfoCommand:
@@ -378,43 +454,44 @@ namespace TelegramObcuaBot
 
                         return;
                     case Commands.SubscribeOnAlarmCommand:
-                        await _alertSubscriptions.subscribeOnAlarmAsync();
+                        await _userList[curChatIndex].AlarmSubscriptions.subscribeOnAlarmAsync();
 
                         return;
                     case Commands.UnsubscribeCommand:
-                        await _alertSubscriptions.unsubscribeAsync();
+                        await _userList[curChatIndex].AlarmSubscriptions.unsubscribeAsync();
 
                         return;
                 }
             }
 
-            if (message.Text.Split(" ")[POS_OF_COMMAND] == Commands.UnsubscribeCommand
-                || message.Text.Split(" ")[POS_OF_COMMAND] == Commands.SubscribeOnAlarmCommand
-                || message.Text.Split(" ")[POS_OF_COMMAND] == Commands.GetInfoCommand
-                || message.Text.Split(" ")[POS_OF_COMMAND] == Commands.SetValueCommand
-                || message.Text.Split(" ")[POS_OF_COMMAND] == Commands.GetValueCommand)
+            if (_userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND] == Commands.UnsubscribeCommand
+                || _userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND] == Commands.SubscribeOnAlarmCommand
+                || _userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND] == Commands.GetInfoCommand
+                || _userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND] == Commands.SetValueCommand
+                || _userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND] == Commands.GetValueCommand)
             {
-                if (!isConnected)
+                if (!_userList[curChatIndex].isConnected)
                 {
-                    await botClient.SendTextMessageAsync(message.Chat, MessageStrings.NotConnectedMessage);
+                    await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.NotConnectedMessage);
 
                     return;
                 }
 
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongDataMessage);
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.WrongDataMessage);
 
                 return;
             }
-            else if (message.Text.Split(" ")[POS_OF_COMMAND] == Commands.ConnectCommand)
+            else if (_userList[curChatIndex].message.Text.Split(" ")[User.POS_OF_COMMAND] == Commands.ConnectCommand)
             {
-                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongDataMessage);
+                await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.WrongDataMessage);
 
                 return;
             }
 
-            await botClient.SendTextMessageAsync(message.Chat, MessageStrings.WrongCommandMessage);
+            await botClient.SendTextMessageAsync(_userList[curChatIndex].message.Chat, MessageStrings.WrongCommandMessage);
 
             return;
         }
+
     }
 }

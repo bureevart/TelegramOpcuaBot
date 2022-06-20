@@ -6,21 +6,32 @@ using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 
-namespace TelegramObcuaBot
+namespace TelegramOpcuaBot
 {
-    public class AlertSubscriptions
+    /// <summary>
+    /// Класс подписок на алармы
+    /// </summary>
+    public class AlarmSubscriptions
     {
         public const int POS_OF_COMMAND_PARAMS = 1;
 
         Message message;
         internal ITelegramBotClient botClient;
-        static bool isConnected = false;
+        internal static bool isConnected = false;
         private static OpcClient _client;
 
         public Queue<string> alertsQueue = new Queue<string>();
 
         public int nodeSeverity;
-        internal AlertSubscriptions(Message message, ITelegramBotClient botClient, ref OpcClient opcClient, bool isConnctd)
+
+        /// <summary>
+        /// Конструктор алармов
+        /// </summary>
+        /// <param name="message">сообщение, отправленное пользователем боту</param>
+        /// <param name="botClient">телеграм-бот</param>
+        /// <param name="opcClient">клиент opc</param>
+        /// <param name="isConnctd">есть ли подключение к серверу</param>
+        internal AlarmSubscriptions(Message message, ITelegramBotClient botClient, OpcClient opcClient, bool isConnctd)
         {
             this.message = message;
             this.botClient = botClient;
@@ -28,6 +39,10 @@ namespace TelegramObcuaBot
             isConnected = isConnctd;
         }
 
+        /// <summary>
+        /// Проверка подписок на алармы
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
         internal async Task checkSubscriptionsAsync()
         {
             if (!isConnected)
@@ -51,8 +66,19 @@ namespace TelegramObcuaBot
             await botClient.SendTextMessageAsync(message.Chat, "Список подписок на алармы: \n" + list);
         }
 
+        /// <summary>
+        /// Отписка от подписки с указанным id
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
         internal async Task unsubscribeAsync()
         {
+            if (!isConnected)
+            {
+                await botClient.SendTextMessageAsync(message.Chat, MessageStrings.NotConnectedMessage);
+
+                return;
+            }
+
             var subId = message.Text.Split(" ")[POS_OF_COMMAND_PARAMS];
 
             var subscribeId = -1;
@@ -82,6 +108,10 @@ namespace TelegramObcuaBot
 
         }
 
+        /// <summary>
+        /// Подписка на аларм (с указанием severity)
+        /// </summary>
+        /// <returns>Task (вызывающий код будет ждать завершение метода)</returns>
         internal async Task subscribeOnAlarmAsync()
         {
             if (!isConnected)
@@ -108,6 +138,7 @@ namespace TelegramObcuaBot
                             OpcEventTypes.DialogCondition)
                 .Where(currentAlarmSeverity >= nodeSeverity)
                 .Select();
+
             _client.SubscribeEvent(
                 OpcObjectTypes.Server,
                 filter,
@@ -115,6 +146,11 @@ namespace TelegramObcuaBot
             await botClient.SendTextMessageAsync(message.Chat, MessageStrings.SuccecsfullySubscribedMessage);
         }
 
+        /// <summary>
+        /// Обработчик алармов
+        /// </summary>
+        /// <param name="sender">отправитель</param>
+        /// <param name="e">событие, которое произошло</param>
         private void HandleGlobalEvents(object sender, OpcEventReceivedEventArgs e)
         {
             alertsQueue.Enqueue(
@@ -127,7 +163,10 @@ namespace TelegramObcuaBot
             sendAlertAsync();
         }
 
-        public async Task sendAlertAsync()
+        /// <summary>
+        /// Вывод алармов пользователю
+        /// </summary>
+        public async void sendAlertAsync()
         {
             while (alertsQueue.Count > 0)
             {
@@ -135,5 +174,12 @@ namespace TelegramObcuaBot
                 await botClient.SendTextMessageAsync(message.Chat, $"Обнаружен аларм тяжестью равного {nodeSeverity} или выше: \n{alert}");
             }
         }
+
     }
 }
+
+
+// xml документация
+// руководство администрирования (настройка, механизм ввода токена)
+// руководство пользователя
+// разделители (setNode пробелы......)
