@@ -85,7 +85,7 @@ namespace TelegramOpcuaBot
 
                     return;
                 case Commands.CheckSubscribtionsCommand:
-                    await _userList[curChatIndex].AlarmSubscriptions.checkSubscriptionsAsync();
+                    await _userList[curChatIndex].AlarmSubscriptions.CheckSubscriptionsAsync();
 
                     return;
                 default:
@@ -475,11 +475,11 @@ namespace TelegramOpcuaBot
 
                         return;
                     case Commands.SubscribeOnAlarmCommand:
-                        await _userList[curChatIndex].AlarmSubscriptions.subscribeOnAlarmAsync();
+                        await _userList[curChatIndex].AlarmSubscriptions.SubscribeOnAlarmAsync();
 
                         return;
                     case Commands.UnsubscribeCommand:
-                        await _userList[curChatIndex].AlarmSubscriptions.unsubscribeAsync();
+                        await _userList[curChatIndex].AlarmSubscriptions.UnsubscribeAsync();
 
                         return;
                 }

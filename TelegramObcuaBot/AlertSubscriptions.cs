@@ -52,7 +52,7 @@ namespace TelegramOpcuaBot
         /// Checking alarm on subscriptions
         /// </summary>
         /// <returns>Task (called code will wait end of method)</returns>
-        internal async Task checkSubscriptionsAsync()
+        internal async Task CheckSubscriptionsAsync()
         {
             if (!isConnected)
             {
@@ -79,7 +79,7 @@ namespace TelegramOpcuaBot
         /// Unsubscribe from a subscription with the specified id
         /// </summary>
         /// <returns>Task (called code will wait end of method)</returns>
-        internal async Task unsubscribeAsync()
+        internal async Task UnsubscribeAsync()
         {
             if (!isConnected)
             {
@@ -121,7 +121,7 @@ namespace TelegramOpcuaBot
         /// Subsctiption on alarm (necessary severity)
         /// </summary>
         /// <returns>Task (called code will wait end of method)</returns>
-        internal async Task subscribeOnAlarmAsync()
+        internal async Task SubscribeOnAlarmAsync()
         {
             if (!isConnected)
             {
@@ -169,13 +169,13 @@ namespace TelegramOpcuaBot
                 $"\nSeverity: {e.Event.Severity}" +
                 $"\nВремя получения: {e.Event.ReceiveTime}");
 
-            sendAlertAsync();
+            SendAlertAsync();
         }
 
         /// <summary>
         /// alarm output
         /// </summary>
-        public async void sendAlertAsync()
+        public async void SendAlertAsync()
         {
             while (alarmsQueue.Count > 0)
             {
@@ -186,6 +186,3 @@ namespace TelegramOpcuaBot
 
     }
 }
-
-// руководство администрирования (настройка, механизм ввода токена)
-// разделители (setNode пробелы......)

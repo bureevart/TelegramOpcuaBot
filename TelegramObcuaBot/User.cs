@@ -39,21 +39,25 @@ namespace TelegramOpcuaBot
                 _password = array[2];
             }
         }
+
         public OpcClient Client 
         { 
             get { return _client; } 
             set { _client = value; }
         }
+
         public string Node
         {
             get { return _node; } 
             set { _node = value; } 
         }
+
         public AlarmSubscriptions AlarmSubscriptions 
         {
             get { return _alarmSubscriptions; }
             set{ _alarmSubscriptions = value; }
         }
+
         public string Ip
         {
             get { return _ip; }
